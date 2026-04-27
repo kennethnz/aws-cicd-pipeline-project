@@ -1,22 +1,6 @@
 version: 0.2
-
 phases:
-  install:
-    commands:
-      - echo "Installing dependencies (if any)..."
-  pre_build:
-    commands:
-      - echo "Preparing for deployment..."
   build:
     commands:
-      - echo "Build phase - currently static files only."
-  post_build:
-    commands:
-      - echo "Uploading to S3 bucket: $BUCKET_NAME"
-      - aws s3 sync . s3://$BUCKET_NAME --delete --exclude "buildspec.yml" --exclude ".git/*"
-      - echo "Clearing CloudFront Cache for Distribution: $DIST_ID"
-      - aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*"
-
-artifacts:
-  files:
-    - '**/*'
+      - "aws s3 sync . s3://$BUCKET_NAME --delete --exclude 'buildspec.yml'"
+      - "aws cloudfront create-invalidation --distribution-id $DIST_ID --paths '/*'"
