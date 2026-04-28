@@ -1,6 +1,52 @@
 version: 0.2
+
+env:
+  variables:
+    DEPLOY_ENV: "production"
+
 phases:
+
+  install:
+    commands:
+      - echo "Build $CODEBUILD_BUILD_NUMBER started"
+      - echo "Commit → $CODEBUILD_RESOLVED_SOURCE_VERSION"
+
+  pre_build:
+    commands:
+      - |
+        if [ ! -f "index.html" ]; then
+          echo "ERROR: index.html not found. Aborting."
+          exit 1
+        fi
+      - echo "Validation passed"
+
   build:
     commands:
-      - "aws s3 sync . s3://$BUCKET_NAME --delete --exclude 'buildspec.yml'"
-      - "aws cloudfront create-invalidation --distribution-id $DIST_ID --paths '/*'"
+      - |
+        cat > version.json << EOF
+        {
+          "build_number": "$CODEBUILD_BUILD_NUMBER",
+          "commit_sha": "$CODEBUILD_RESOLVED_SOURCE_VERSION",
+          "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+          "environment": "$DEPLOY_ENV"
+        }
+        EOF
+      - |
+        aws s3 sync . s3://$BUCKET_NAME --delete \
+          --exclude '.git/*' \
+          --exclude 'buildspec.yml' \
+          --exclude '*.yml' \
+          --exclude 'README.md'
+      - |
+        aws cloudfront create-invalidation \
+          --distribution-id $DIST_ID \
+          --paths '/*'
+
+  post_build:
+    commands:
+      - |
+        if [ "$CODEBUILD_BUILD_SUCCEEDING" = "1" ]; then
+          echo "Deploy SUCCEEDED"
+        else
+          echo "Deploy FAILED — S3 was not updated"
+        fi
